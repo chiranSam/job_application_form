@@ -12,7 +12,15 @@
         <div class="bg-blue-500 text-white text-lg font-semibold p-3 rounded-t-lg">
             Employment Application Form
         </div>
-        <form action="" method="POST" enctype="multipart/form-data" class="p-4">
+        @if(session('success'))
+            <div id="success-message" class="mb-4 p-4 bg-green-500 text-white text-center rounded-md relative">
+                <button id="close-btn" class="absolute top-0 right-0 p-2 text-white" onclick="closeSuccessMessage()">
+                    &times;
+                </button>
+                {{ session('success') }}
+            </div>
+        @endif
+        <form action="{{ route('submit-application') }}" method="POST" enctype="multipart/form-data" class="p-4">
             @csrf
             <div class="mb-4">
                 <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
@@ -44,6 +52,22 @@
             </button>
         </form>
     </div>
-</body>
+    <script>
+        window.onload = function(){
+            const successMessage = document.getElementById('success-message');
+            if(successMessage){
+                setTimeout(()=> {
+                    successMessage.style.display = 'none';
+                },3000);
+            }
+        };
 
+        function closeSuccessMessage(){
+            const successMessage = document.getElementById('success-message');
+            if(successMessage){
+                successMessage.style.display = 'none';
+            }
+        }
+    </script>    
+</body>
 </html>
