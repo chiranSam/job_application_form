@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\FollowUpEmail;
+use Carbon\Carbon;
 use Google_Client;
 use Google_Service_Sheets;
 use Google_Service_Sheets_ValueRange;
@@ -61,6 +64,8 @@ class ApplicationController extends Controller
             $this->saveToGoogleSheets($request, $parsedData, $cvUrl);
 
             $this->sendWebhook($parsedData, $cvUrl, 'testing');
+
+            $this->scheduleFollowUpEmail($request->email, $request->name);
 
             return redirect()->back()->with('success', 'Your application has been submitted successfully!');
 
@@ -153,10 +158,11 @@ class ApplicationController extends Controller
             ];
         }
 
+        //From the textract in AWS we can use qu
+
         $lines = array_filter(array_map('trim', explode("\n", $text)));
         $lines = array_values($lines);
 
-        // Combine First & Last Name
         $fullName = ($lines[0] ?? 'N/A') . ' ' . ($lines[1] ?? '');
 
         // Extract Phone
@@ -177,14 +183,6 @@ class ApplicationController extends Controller
             }
         }
 
-        // // Extract Degree (BSc, MSc, PhD)
-        // $degree = 'N/A';
-        // foreach ($lines as $line) {
-        //     if (preg_match('/(BSc|MSc|PhD)/i', $line, $matches)) {
-        //         $degree = $matches[1];
-        //         break;
-        //     }
-        // }
 
         //  Extract Degree Details
         $degreeKeywords = ['BSc', 'MSc', 'PhD'];
@@ -304,7 +302,7 @@ class ApplicationController extends Controller
     private function sendWebhook(array $parsedData, string $cvUrl, string $submissionStatus)
     {
         $endpointUrl = 'https://rnd-assignment.automations-3d6.workers.dev/';
-        $applicantEmail = 'chirancps2003@gmail.com'; // Replace with the email you used to apply at Metana
+        $applicantEmail = 'chirancps2003@gmail.com'; 
 
         $payload = [
             "cv_data" => [
@@ -313,16 +311,16 @@ class ApplicationController extends Controller
                     "phone" => $parsedData['Phone'],
                     "email" => $parsedData['Email']
                 ],
-                "education" => explode("\n", $parsedData['Education']),  // Ensure array format
-                "skills" => explode(", ", $parsedData['Skills']),  // Ensure array format
-                "projects" => explode("\n", $parsedData['Projects']),  // Ensure array format
-                "qualifications" => explode("\n", $parsedData['Degree']),  // ✅ Fix: Ensure qualifications is a list
+                "education" => explode("\n", $parsedData['Education']),  
+                "skills" => explode(", ", $parsedData['Skills']),  
+                "projects" => explode("\n", $parsedData['Projects']),  
+                "qualifications" => explode("\n", $parsedData['Degree']),  
                 "cv_public_link" => $cvUrl
             ],
             "metadata" => [
                 "applicant_name" => $parsedData['Name'],
                 "email" => $parsedData['Email'],
-                "status" => $submissionStatus, // "testing" or "prod"
+                "status" => $submissionStatus, 
                 "cv_processed" => true,
                 "processed_timestamp" => now()->toIso8601String()
             ]
@@ -337,5 +335,15 @@ class ApplicationController extends Controller
         } else {
             \Log::info('Webhook sent successfully.');
         }
+    }
+
+    private function scheduleFollowUpEmail($email, $name)
+    {
+        // Schedule email for the next day at 9 AM applicant's local time
+        $sendTime = Carbon::now()->addDay()->setHour(9)->setMinute(0);
+
+        Mail::to($email)->later($sendTime, new FollowUpEmail($name));
+
+        \Log::info("Follow-up email scheduled for: " . $email . " at " . $sendTime->toDateTimeString());
     }
 }
