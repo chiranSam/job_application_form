@@ -313,9 +313,10 @@ class ApplicationController extends Controller
                     "phone" => $parsedData['Phone'],
                     "email" => $parsedData['Email']
                 ],
-                "education" => explode("\n", $parsedData['Education']),
-                "skills" => explode(", ", $parsedData['Skills']),
-                "projects" => explode("\n", $parsedData['Projects']),
+                "education" => explode("\n", $parsedData['Education']),  // Ensure array format
+                "skills" => explode(", ", $parsedData['Skills']),  // Ensure array format
+                "projects" => explode("\n", $parsedData['Projects']),  // Ensure array format
+                "qualifications" => explode("\n", $parsedData['Degree']),  // ✅ Fix: Ensure qualifications is a list
                 "cv_public_link" => $cvUrl
             ],
             "metadata" => [
