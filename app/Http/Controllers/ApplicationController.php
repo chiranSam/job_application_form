@@ -50,17 +50,14 @@ class ApplicationController extends Controller
         \Log::info("File successfully uploaded: " . $cvUrl);
 
         try {
-            // ✅ Extract text from CV using AWS Textract (OCR)
             $text = $this->extractTextFromS3($path);
 
             if (empty($text)) {
                 \Log::warning("No text extracted from CV.");
             }
 
-            // ✅ Parse extracted text dynamically
             $parsedData = $this->parseCVText($text);
 
-            // ✅ Store data in Google Sheets
             $this->saveToGoogleSheets($request, $parsedData, $cvUrl);
 
             $this->sendWebhook($parsedData, $cvUrl, 'testing');
@@ -318,11 +315,11 @@ class ApplicationController extends Controller
                 "cv_public_link" => $cvUrl
             ],
             "metadata" => [
-                "applicant_name" => $parsedData['Name'],
-                "email" => $parsedData['Email'],
-                "status" => $submissionStatus, 
+                "applicant_name" => 'John Doe',
+                "email" => 'john.doe@example.com',
+                "status" => 'testing', 
                 "cv_processed" => true,
-                "processed_timestamp" => now()->toIso8601String()
+                "processed_timestamp" => "2025-02-28T12:00:00Z"
             ]
         ];
 
