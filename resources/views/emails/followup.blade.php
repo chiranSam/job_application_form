@@ -1,5 +1,5 @@
 @component('mail::message')
-Hello {{ $name}},
+Hello {{$name}},
 
 Thank you for applying to our company.  
 

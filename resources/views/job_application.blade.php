@@ -42,8 +42,9 @@
                 <div class="flex items-center space-x-2">
                     <input type="file" name="cv" id="cv" accept=".pdf,.docx" required
                         class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-md focus:ring-blue-500 focus:border-blue-500">
-                    <button type="button"
-                        class="px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600">Upload</button>
+                    <button type="button" id="uploadBtn"class="px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600">
+                    Upload
+                    </button>
                 </div>
             </div>
             <button type="submit"
@@ -58,7 +59,7 @@
             if(successMessage){
                 setTimeout(()=> {
                     successMessage.style.display = 'none';
-                },3000);
+                },5000);
             }
         };
 
@@ -68,6 +69,16 @@
                 successMessage.style.display = 'none';
             }
         }
+
+        //upload button handller
+        document.getElementById('uploadBtn').addEventListener('click', function () {
+        document.getElementById('cv').click();
+        });
+
+        document.getElementById('cv').addEventListener('change', function () {
+        const fileName = this.files[0] ? this.files[0].name : "No file chosen";
+        document.getElementById('fileName').textContent = fileName;
+        });
     </script>    
 </body>
 </html>

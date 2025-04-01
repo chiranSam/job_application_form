@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FollowUpEmail;
+use App\Jobs\ProcessCVSubmission;
 use Carbon\Carbon;
 use Google_Client;
 use Google_Service_Sheets;
@@ -16,10 +17,56 @@ use Aws\Textract\TextractClient;
 use Exception;
 
 
+
 class ApplicationController extends Controller
 {
+    // public function submit(Request $request)
+    // {
+    //     ini_set('max_execution_time', 120);
+
+    //     // Validate input fields
+    //     $validator = Validator::make($request->all(), [
+    //         'name' => 'required|string|max:255',
+    //         'email' => 'required|email',
+    //         'phone' => 'required|string|min:10|max:15',
+    //         'cv' => 'required|mimes:pdf|max:10240' // 10MB max
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return redirect()->back()->withErrors($validator)->withInput();
+    //     }
+
+    //     if (!$request->hasFile('cv')) {
+    //         return redirect()->back()->withErrors(['error' => 'No file uploaded.'])->withInput();
+    //     }
+
+    //     // Upload CV to AWS S3
+    //     $path = $request->file('cv')->store('JobApplications', 's3');
+    //     if (!$path) {
+    //         return redirect()->back()->withErrors(['error' => 'File upload failed.'])->withInput();
+    //     }
+
+    //     // Generate S3 File URL
+    //     $cvUrl = Storage::disk('s3')->url($path);
+
+    //     \Log::info("File successfully uploaded: " . $cvUrl);
+
+    //     // Dispatch job to process the CV asynchronously
+    //     dispatch(new ProcessCVSubmission([
+    //         'name' => $request->input('name'),
+    //         'email' => $request->input('email'),
+    //         'phone' => $request->input('phone'),
+    //     ], $cvUrl, $path));
+
+    //     // Return success response immediately
+    //     return redirect()->back()->with('success', 'Your application has been submitted successfully! We will process your CV in the background.');
+    // }
+
+
+
     public function submit(Request $request)
     {
+        ini_set('max_execution_time', 120); 
         // Validate input fields
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -72,7 +119,7 @@ class ApplicationController extends Controller
         }
     }
 
-        private function extractTextFromS3($s3Path)
+        public function extractTextFromS3($s3Path)
     {
         if (!$s3Path) {
             \Log::error("Empty S3 Path received in extractTextFromS3");
@@ -140,7 +187,7 @@ class ApplicationController extends Controller
     }
 
 
-        private function parseCVText($text)
+        public function parseCVText($text)
     {
         if (empty($text)) {
             return [
@@ -155,7 +202,6 @@ class ApplicationController extends Controller
             ];
         }
 
-        //From the textract in AWS we can use qu
 
         $lines = array_filter(array_map('trim', explode("\n", $text)));
         $lines = array_values($lines);
@@ -182,7 +228,7 @@ class ApplicationController extends Controller
 
 
         //  Extract Degree Details
-        $degreeKeywords = ['BSc', 'MSc', 'PhD'];
+        $degreeKeywords = ['BSc', 'MSc', 'PhD', 'Hnd', 'Diploma'];
         $degree = [];
         foreach ($lines as $line) {
             foreach ($degreeKeywords as $keyword) {
@@ -258,8 +304,11 @@ class ApplicationController extends Controller
         ];
     }
 
-    private function saveToGoogleSheets(Request $request, array $parsedData, string $cvUrl)
+    public function saveToGoogleSheets(Request $request, array $parsedData, string $cvUrl)
     {
+        $timezone = $request->input('timezone', 'UTC'); 
+        $dateTime = Carbon::now($timezone)->toDateTimeString(); 
+
         $client = new Google_Client();
         $client->setApplicationName('CV Submission');
         $client->setScopes([Google_Service_Sheets::SPREADSHEETS]);
@@ -282,7 +331,7 @@ class ApplicationController extends Controller
                 $parsedData['Skills'],
                 $parsedData['Projects'],
                 $cvUrl,
-                now()->toDateTimeString()
+                $dateTime
             ]
         ];
 
@@ -296,7 +345,7 @@ class ApplicationController extends Controller
         $service->spreadsheets_values->append($spreadsheetId, $range, $body, $params);
     }
 
-    private function sendWebhook(array $parsedData, string $cvUrl, string $submissionStatus)
+    public function sendWebhook(array $parsedData, string $cvUrl, string $submissionStatus)
     {
         $endpointUrl = 'https://rnd-assignment.automations-3d6.workers.dev/';
         $applicantEmail = 'chirancps2003@gmail.com'; 
@@ -334,10 +383,11 @@ class ApplicationController extends Controller
         }
     }
 
-    private function scheduleFollowUpEmail($email, $name)
+    public function scheduleFollowUpEmail($email, $name)
     {
         // Schedule email for the next day at 9 AM applicant's local time
-        $sendTime = Carbon::now()->addDay()->setHour(9)->setMinute(0);
+        //$sendTime = Carbon::now()->addDay()->setHour(9)->setMinute(0);
+        $sendTime = Carbon::now()->addMinutes(1);
 
         Mail::to($email)->later($sendTime, new FollowUpEmail($name));
 
